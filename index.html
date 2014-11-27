@@ -1,0 +1,97 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="content-type" content="text/html;charset=UTF-8"/>
+    <title>CFF Editor</title>
+    <script src="js/jquery.js"></script>
+    <script src="js/FileSaver.js"></script>
+    <script src="js/utf8.js"></script>
+    <script>
+        var file, cff;
+        $(function(){
+            $(document).on({
+                "drop": IgnoreDrag,
+                "dragenter": IgnoreDrag,
+                "dragover": IgnoreDrag
+            });
+
+            $("#droppable").on({
+                "drop": CffLoader,
+                "dragenter": IgnoreDrag,
+                "dragover": IgnoreDrag
+            });
+
+            $("#save").click(function() {
+                var bin = "---" + cff[1] + "---\r\n" + Utf8ToBinaryString($("#cfg").val().replace(/\n/g, "\r\n")) +
+                          "---" + cff[3] + "---\r\n" + Utf8ToBinaryString($("#inf").val().replace(/\n/g, "\r\n")) +
+                          "---" + cff[5] + "---\r\n" + Utf8ToBinaryString($("#hdr").val().replace(/\n/g, "\r\n")) +
+                          "---" + cff[7] + "---\r\n" + cff[8],
+                    // BinaryString to Uint8Array(fix Mojibake)
+                    blob = new Blob([BinaryStringToUint8Array(bin)], {type: "application/octet-stream"});
+                saveAs(blob, file.name);
+            })
+        })
+
+        function IgnoreDrag(e){e.preventDefault()}
+
+        function CffLoader(event) {
+            var reader = new FileReader();
+            file = event.originalEvent.dataTransfer.files[0];
+            reader.onload = function() {
+                var bStr = BytesToBinaryString(new Uint8Array(this.result));
+                // bStr split
+                cff = bStr.split(/---\r\n|---/);
+
+                $("#cfg").val(BinaryStringToUtf8(cff[2]));
+                $("#inf").val(BinaryStringToUtf8(cff[4]));
+                $("#hdr").val(BinaryStringToUtf8(cff[6]));
+            };
+            reader.readAsArrayBuffer(file);
+            $("#save").prop("disabled", false);
+            return false;
+        }
+
+        function BinaryStringToUtf8(bStr) {
+            var bytes = [];
+            for (var n = 0; n < bStr.length; n++) {
+                bytes.push(bStr.charCodeAt(n));
+            }
+            return utf8.bytesToString(bytes);
+        }
+
+        function Utf8ToBinaryString(str) {
+            var bytes = utf8.stringToBytes(str);
+            return BytesToBinaryString(bytes);
+        }
+
+        function BytesToBinaryString(bytes) {
+            var bStr = ""
+            for (var n = 0; n < bytes.length; n++) {
+                bStr += String.fromCharCode(bytes[n]);
+            }
+            return bStr;
+        }
+
+        function BinaryStringToUint8Array(bStr) {
+            var size = bStr.length,
+                buffer = new ArrayBuffer(size),
+                bytes = new Uint8Array(buffer);
+            for (var i = 0; i < size; ++i) {
+                bytes[i] = bStr.charCodeAt(i);
+            }
+            return bytes;
+        }
+    </script>
+</head>
+<body>
+    <div id="droppable" style="border: gray solid 1em; padding: 2em; text-align: center; ">
+        Drop CFF File Here. CFG/INF/HDR section editable.
+    </div>
+    <div style="text-align: center; margin: 2px;">
+        <button id="save" style="width: 80%;height:30px;" disabled>CFF Download the following contents</button>
+    </div>
+    <textarea id="cfg" style="width: 59%; height: 600px;" spellcheck="false"></textarea>
+    <textarea id="inf" style="width: 39%; height: 600px;" spellcheck="false"></textarea>
+    <textarea id="hdr" style="width: 59%; height: 600px;" spellcheck="false"></textarea>
+</body>
+</html>
